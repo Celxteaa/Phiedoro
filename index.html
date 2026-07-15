@@ -162,8 +162,8 @@
 
   <!-- ============ HERO / TIMER ============ -->
   <section id="hero" class="space-y-6">
-    <div class="flex items-start justify-between">
-      <div class="flex items-center gap-3">
+    <div class="flex flex-col items-center justify-center gap-4 sm:flex-row sm:items-start sm:justify-between text-center sm:text-left">
+      <div class="flex flex-col items-center gap-3 sm:flex-row">
         <svg viewBox="0 0 100 100" class="w-9 h-9 shrink-0">
           <defs><linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stop-color="#c9294a"/><stop offset="1" stop-color="#6e1526"/>
@@ -172,12 +172,12 @@
           <line x1="50" y1="13" x2="50" y2="87" stroke="url(#logoGrad)" stroke-width="7"/>
           <circle cx="57" cy="58" r="21" fill="none" stroke="url(#logoGrad)" stroke-width="7"/>
         </svg>
-        <div>
+        <div class="flex flex-col items-center sm:items-start">
           <h1 class="brand-name brand-font text-2xl tracking-tight leading-none">Phiedoro</h1>
           <p class="text-xs theme-text-muted mt-1" data-i18n="tagline">Satu tugas, satu putaran, satu waktu.</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center justify-center gap-2 max-w-full">
         <!-- LANG SWITCHER -->
         <button id="lang-toggle" class="icon-btn px-2 py-1.5 rounded-lg theme-card border theme-border hover:opacity-80 text-[10px] font-bold tracking-wider mono cursor-pointer shadow-sm">
           ID
@@ -309,6 +309,7 @@
 
     <div id="diary-list" class="space-y-2"></div>
     <p id="diary-empty" class="text-xs theme-text-muted text-center py-6 theme-muted rounded-xl" data-i18n="diaryEmpty">Belum ada entri jurnal.</p>
+    <p class="text-xs theme-text-muted leading-relaxed">Note: Download your diary to Word before refreshing the page.</p>
   </section>
 
   <hr class="theme-border">
