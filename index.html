@@ -404,6 +404,67 @@
   </div>
 </div>
 
+<!-- ============ FLOATING AUDIO PLAYER (LOCAL FILE INTEGRATION) ============ -->
+<!-- Ditambahkan properti `cursor-grab` pada wadah utama untuk menandakan area seret -->
+<div id="floating-music-player" class="hidden fixed bottom-4 left-4 z-50 theme-card border theme-border rounded-2xl p-4 shadow-xl flex flex-col gap-3 min-w-[280px] max-w-[325px] transition-all duration-300 cursor-grab active:cursor-grabbing select-none">
+  <!-- Header Minimalis -->
+  <div class="flex items-center justify-between pointer-events-none">
+    <div class="flex items-center gap-2 overflow-hidden flex-1 mr-2">
+      <span class="text-xs shrink-0">🎵</span>
+      <span id="music-title-display" class="text-[11px] font-bold tracking-wide uppercase theme-text-muted mono truncate block">Pilih File Musik...</span>
+    </div>
+    <!-- Lampu Indikator Status Musik -->
+    <span id="player-status-dot" class="w-2 h-2 rounded-full bg-zinc-400 shrink-0"></span>
+  </div>
+
+  <!-- Pemilih File Musik Lokal -->
+  <label class="w-full flex items-center justify-center border border-dashed theme-border rounded-xl py-2 px-3 text-[11px] font-medium tracking-wide cursor-pointer hover:bg-zinc-500/5 transition select-none relative z-10">
+    <span class="theme-text-muted truncate" id="file-label-text">📂 Unggah File (.mp3, .webm, .ogg)</span>
+    <input type="file" id="local-audio-input" multiple accept="audio/webm, audio/mp3, audio/mpeg, audio/ogg, audio/wav" class="hidden">
+  </label>
+
+  <!-- Progress Bar (Bisa Diklik & Digeser) -->
+  <div class="space-y-1 relative z-10">
+    <div class="relative w-full h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full cursor-pointer overflow-hidden group" id="progress-container">
+      <div id="music-progress-fill" class="h-full accent-bg w-0 pointer-events-none transition-all duration-100"></div>
+    </div>
+    <div class="flex justify-between text-[9px] font-mono theme-text-muted select-none">
+      <span id="time-current">00:00</span>
+      <span id="time-total">00:00</span>
+    </div>
+  </div>
+
+  <!-- Kontrol Utama Pemutar Musik -->
+  <div class="flex items-center justify-between gap-2 bg-zinc-500/5 p-2 rounded-xl border theme-border relative z-10">
+    <div class="flex items-center gap-1 shrink-0">
+      <!-- Tombol Prev -->
+      <button id="custom-prev-btn" class="w-8 h-8 rounded-lg border theme-border hover:bg-zinc-500/10 flex items-center justify-center transition cursor-pointer" title="Lagu Sebelumnya">
+        <svg class="w-4 h-4 theme-text-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+      
+      <!-- Tombol Play / Pause -->
+      <button id="custom-play-btn" class="w-10 h-10 rounded-lg accent-bg text-white flex items-center justify-center transition hover:opacity-90 cursor-pointer shadow-sm">
+        <svg id="c-play-icon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="c-pause-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+      </button>
+
+      <!-- Tombol Next -->
+      <button id="custom-next-btn" class="w-8 h-8 rounded-lg border theme-border hover:bg-zinc-500/10 flex items-center justify-center transition cursor-pointer" title="Lagu Selanjutnya">
+        <svg class="w-4 h-4 theme-text-muted" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+      </button>
+    </div>
+    
+    <!-- Kontrol Volume Mandiri -->
+    <div class="flex-1 flex items-center gap-1.5 px-1 justify-end">
+      <span class="text-xs theme-text-muted select-none">🔊</span>
+      <input id="custom-volume-slider" type="range" min="0" max="100" value="50" class="w-full max-w-[70px] h-1 bg-zinc-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-[var(--mode-accent)]">
+    </div>
+  </div>
+
+  <!-- Tag Audio HTML5 Utama Tersembunyi -->
+  <audio id="local-audio-core" class="hidden"></audio>
+</div>
+
 <script>
 (function(){
   const html = document.documentElement;
@@ -1093,6 +1154,309 @@
   setMode('work', false);
   renderTime();
 })();
+
+/* ==========================================================================
+     INTEGRASI FIX: PEMUTAR MUSIK UTAMA PHIEDORO (MANUAL KODE PLAYLIST)
+     ========================================================================== */
+  
+  // Element Selector Kustom Musik
+  const floatingPlayer = document.getElementById('floating-music-player');
+  const customPlayBtn = document.getElementById('custom-play-btn');
+  const cPlayIcon = document.getElementById('c-play-icon');
+  const cPauseIcon = document.getElementById('c-pause-icon');
+  const customVolumeSlider = document.getElementById('custom-volume-slider');
+  const playerStatusDot = document.getElementById('player-status-dot');
+  const musicTitleDisplay = document.getElementById('music-title-display');
+  
+  // Penambahan Komponen Baru untuk File Lokal & Progress
+  const localAudioInput = document.getElementById('local-audio-input');
+  const fileLabelText = document.getElementById('file-label-text');
+  const audioCore = document.getElementById('local-audio-core');
+  const progressContainer = document.getElementById('progress-container');
+  const musicProgressFill = document.getElementById('music-progress-fill');
+  const timeCurrent = document.getElementById('time-current');
+  const timeTotal = document.getElementById('time-total');
+  const customPrevBtn = document.getElementById('custom-prev-btn');
+  const customNextBtn = document.getElementById('custom-next-btn');
+  
+  // Selector tombol ambient bawaan
+  const myAmbientBtn = document.getElementById('ambient-toggle') || document.querySelector('.ambient-toggle') || (typeof ambientBtn !== 'undefined' ? ambientBtn : null);
+  const myAmbientPanel = document.getElementById('ambient-panel') || document.querySelector('.ambient-panel') || (typeof ambientPanel !== 'undefined' ? ambientPanel : null);
+
+  // ==========================================
+  // INPUT PLAYLIST MUSIK MANUAL
+  // ==========================================
+  const hardcodedMusicList = [
+    { path: './Mackenzie_Ziegler_-_Breathe.webm', name: 'Mackenzie_Ziegler_-_Breathe' },
+    { path: './Sukiyaki_by_Aiza_Seguerra.webm', name: 'Sukiyaki by Aiza Seguerra' },
+    { path: './Amaoto.webm', name: 'Amaoto' },
+    { path: './Genshin_Impact_Vourukasha_Oasis_Theme.webm', name: 'Genshin_Impact_Vourukasha_Oasis_Theme' },
+    { path: './Ruth_B._-_Dandelions.webm', name: 'Ruth B. - Dandelions' }
+  ];
+  
+  let currentMusicIndex = 0;
+  let userUploadedPlaylist = []; // Menyimpan berkas yang diunggah pengguna jika ada
+
+  // Format Waktu Audio (00:00)
+  function formatAudioTime(secs) {
+    if (isNaN(secs)) return "00:00";
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = Math.floor(secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  // Mendapatkan daftar lagu aktif (unggah manual atau hardcoded)
+  function getActivePlaylist() {
+    return userUploadedPlaylist.length > 0 ? userUploadedPlaylist : hardcodedMusicList;
+  }
+
+  // Load Lagu Berdasarkan Index
+  function loadTrack(index) {
+    const playlist = getActivePlaylist();
+    if (playlist.length === 0 || index < 0 || index >= playlist.length) return;
+    
+    currentMusicIndex = index;
+    const currentTrack = playlist[currentMusicIndex];
+    
+    if (userUploadedPlaylist.length > 0) {
+      // Jika dari berkas unggahan, buat URL Object
+      audioCore.src = URL.createObjectURL(currentTrack.file);
+      if (musicTitleDisplay) musicTitleDisplay.textContent = currentTrack.name;
+      if (fileLabelText) fileLabelText.textContent = `Lagu ${currentMusicIndex + 1} dari ${playlist.length}`;
+    } else {
+      // Jika dari hardcoded list
+      audioCore.src = currentTrack.path;
+      if (musicTitleDisplay) musicTitleDisplay.textContent = currentTrack.name;
+      if (fileLabelText) fileLabelText.textContent = `Lagu ${currentMusicIndex + 1} dari ${playlist.length}`;
+    }
+    
+    audioCore.load();
+    // Otomatis play saat ganti lagu
+    audioCore.play().catch(err => console.log("Autoplay ditangguhkan oleh kebijakan browser. Memerlukan interaksi pengguna."));
+  }
+
+  // Pemilih Berkas Lokal Terunggah
+  if (localAudioInput) {
+    localAudioInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+        userUploadedPlaylist = files.map(file => ({
+          file: file,
+          name: file.name.replace(/\.[^/.]+$/, "") // Hapus ekstensi dari tampilan nama
+        }));
+        loadTrack(0);
+      }
+    });
+  }
+
+  // Logika Tombol Play/Pause 
+  if (customPlayBtn) {
+    customPlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const playlist = getActivePlaylist();
+      if (!audioCore.src && playlist.length > 0) {
+        loadTrack(0);
+        return;
+      }
+      
+      if (audioCore.paused) {
+        audioCore.play();
+      } else {
+        audioCore.pause();
+      }
+    });
+  }
+
+  // Tombol Next & Previous
+  if (customNextBtn) {
+    customNextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const playlist = getActivePlaylist();
+      if (playlist.length > 0) {
+        let nextIndex = currentMusicIndex + 1;
+        if (nextIndex >= playlist.length) nextIndex = 0; 
+        loadTrack(nextIndex);
+      }
+    });
+  }
+
+  if (customPrevBtn) {
+    customPrevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const playlist = getActivePlaylist();
+      if (playlist.length > 0) {
+        let prevIndex = currentMusicIndex - 1;
+        if (prevIndex < 0) prevIndex = playlist.length - 1; 
+        loadTrack(prevIndex);
+      }
+    });
+  }
+
+  // Kontrol Volume
+  if (customVolumeSlider) {
+    audioCore.volume = customVolumeSlider.value / 100;
+    customVolumeSlider.addEventListener('input', (e) => {
+      audioCore.volume = e.target.value / 100;
+    });
+  }
+
+  // Update Status Tampilan & Baris Progress saat Musik Berjalan
+  audioCore.addEventListener('play', () => {
+    cPlayIcon.classList.add('hidden');
+    cPauseIcon.classList.remove('hidden');
+    playerStatusDot.className = "w-2 h-2 rounded-full accent-bg pulse-dot";
+  });
+
+  audioCore.addEventListener('pause', () => {
+    cPlayIcon.classList.remove('hidden');
+    cPauseIcon.classList.add('hidden');
+    playerStatusDot.className = "w-2 h-2 rounded-full bg-zinc-400";
+  });
+
+  audioCore.addEventListener('timeupdate', () => {
+    if (audioCore.duration) {
+      const pct = (audioCore.currentTime / audioCore.duration) * 100;
+      if (musicProgressFill) musicProgressFill.style.width = `${pct}%`;
+      if (timeCurrent) timeCurrent.textContent = formatAudioTime(audioCore.currentTime);
+    }
+  });
+
+  audioCore.addEventListener('loadedmetadata', () => {
+    if (timeTotal) timeTotal.textContent = formatAudioTime(audioCore.duration);
+  });
+
+  // Otomatis Lanjut ke Lagu Berikutnya saat Durasi Selesai (Autoplay Next)
+  audioCore.addEventListener('ended', () => {
+    const playlist = getActivePlaylist();
+    if (playlist.length > 0) {
+      let nextIndex = currentMusicIndex + 1;
+      if (nextIndex >= playlist.length) nextIndex = 0;
+      loadTrack(nextIndex);
+    }
+  });
+
+  // Logika Menggeser (Seeking) Progress Bar
+  if (progressContainer) {
+    progressContainer.addEventListener('click', (e) => {
+      if (!audioCore.duration) return;
+      const rect = progressContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+      const percentage = clickX / width;
+      audioCore.currentTime = percentage * audioCore.duration;
+    });
+  }
+
+  // Fungsi Toggle Menampilkan/Menyembunyikan Player Kustom
+  function jalankanToggleMusikKustom(e) {
+    if (e) e.preventDefault();
+    if (!floatingPlayer) return;
+
+    const sedangTersembunyi = floatingPlayer.classList.contains('hidden');
+
+    if (sedangTersembunyi) {
+      floatingPlayer.classList.remove('hidden');
+      floatingPlayer.style.setProperty('display', 'flex', 'important'); 
+      
+      if (myAmbientPanel) myAmbientPanel.classList.remove('hidden');
+      if (myAmbientBtn) myAmbientBtn.classList.add('active');
+
+      const playlist = getActivePlaylist();
+      if (!audioCore.src && playlist.length > 0) {
+        const track = playlist[currentMusicIndex];
+        if (musicTitleDisplay) musicTitleDisplay.textContent = track.name;
+        if (fileLabelText) fileLabelText.textContent = `Playlist Siap (${playlist.length} Lagu)`;
+      }
+    } else {
+      floatingPlayer.classList.add('hidden');
+      floatingPlayer.style.setProperty('display', 'none', 'important');
+      
+      if (myAmbientPanel) myAmbientPanel.classList.add('hidden');
+      if (myAmbientBtn) myAmbientBtn.classList.remove('active');
+      audioCore.pause();
+    }
+  }
+
+  if (myAmbientBtn) {
+    myAmbientBtn.removeAttribute('onclick'); 
+    myAmbientBtn.addEventListener('click', jalankanToggleMusikKustom);
+  }
+
+  /* ---------- LOGIKA DRAG AND DROP PEMUTAR MUSIK ---------- */
+  let isDragging = false;
+  let offsetX, offsetY;
+
+  floatingPlayer.addEventListener('mousedown', (e) => {
+    // Abaikan jika drag dipicu dari input slider progress, volume, tombol, atau tombol unggah berkas
+    if (e.target.closest('input') || e.target.closest('button') || e.target.closest('label')) return;
+    
+    isDragging = true;
+    floatingPlayer.style.transition = 'none'; // Matikan transisi Tailwind saat digeser
+    
+    const rect = floatingPlayer.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    
+    let left = e.clientX - offsetX;
+    let top = e.clientY - offsetY;
+    
+    // Batasan agar jendela pemutar tidak keluar dari area pandang layar browser
+    const rightBound = window.innerWidth - floatingPlayer.offsetWidth;
+    const bottomBound = window.innerHeight - floatingPlayer.offsetHeight;
+    
+    left = Math.max(0, Math.min(left, rightBound));
+    top = Math.max(0, Math.min(top, bottomBound));
+    
+    floatingPlayer.style.left = `${left}px`;
+    floatingPlayer.style.top = `${top}px`;
+    floatingPlayer.style.bottom = 'auto'; // Reset style awal bawaan css
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      floatingPlayer.style.transition = 'all 0.3s ease'; // Pasang kembali efek transisi kelancaran
+    }
+  });
+
+  // Dukungan untuk perangkat layar sentuh / mobile touch screen
+  floatingPlayer.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input') || e.target.closest('button') || e.target.closest('label')) return;
+    isDragging = true;
+    floatingPlayer.style.transition = 'none';
+    const touch = e.touches[0];
+    const rect = floatingPlayer.getBoundingClientRect();
+    offsetX = touch.clientX - rect.left;
+    offsetY = touch.clientY - rect.top;
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    let left = touch.clientX - offsetX;
+    let top = touch.clientY - offsetY;
+    
+    const rightBound = window.innerWidth - floatingPlayer.offsetWidth;
+    const bottomBound = window.innerHeight - floatingPlayer.offsetHeight;
+    
+    left = Math.max(0, Math.min(left, rightBound));
+    top = Math.max(0, Math.min(top, bottomBound));
+    
+    floatingPlayer.style.left = `${left}px`;
+    floatingPlayer.style.top = `${top}px`;
+    floatingPlayer.style.bottom = 'auto';
+  });
+
+  document.addEventListener('touchend', () => {
+    if (isDragging) {
+      isDragging = false;
+      floatingPlayer.style.transition = 'all 0.3s ease';
+    }
+  });
 </script>
 </body>
 </html>
